@@ -1,11 +1,20 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 func main() {
+	store, err := NewPostgresStore()
 
-	server := NewApiServer(":3000")
-	server.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%+v\n", store)
+
+	// server := NewApiServer(":3000", &store)
+	// server.Run()
 
 	fmt.Print("Bank is alive")
 

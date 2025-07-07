@@ -7,7 +7,11 @@ run: build
 
 
 test: 
-	@go test -v ./...	 
+	@go test -v ./...
+
+
+postgres:
+	@docker run --name some-postgres -e POSTGRES_PASSWORD=gobank -p 5432:5432 -d postgres 
 
 
 # build_proto:
