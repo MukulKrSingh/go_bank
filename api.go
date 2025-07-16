@@ -37,14 +37,14 @@ func makeHttpHandleFunc(f apiFunc) http.HandlerFunc {
 
 type ApiServer struct {
 	listenAddr string
-	store      *Storage
+	store      Storage
 }
 
 func NewApiServer(listenAddr string, store Storage) *ApiServer {
 
 	return &ApiServer{
 		listenAddr: listenAddr,
-		store:      &store,
+		store:      store,
 	}
 
 }
@@ -81,13 +81,29 @@ func (s *ApiServer) handleAcount(w http.ResponseWriter, r *http.Request) error {
 
 }
 func (s *ApiServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
 
-	return WriteJSON(w, 200, vars)
+	res, err := s.store.GetAccounts()
+	if err != nil {
+		return WriteJSON(w, http.StatusInternalServerError, err)
+	}
+	return WriteJSON(w, http.StatusOK, res)
 
 }
 func (s *ApiServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	createAccReq := new(CreateAccountRequest)
+	if err := json.NewDecoder(r.Body).Decode(createAccReq); err != nil {
+		return WriteJSON(w, http.StatusBadRequest, err)
+	}
+	account := NewAccount(
+		createAccReq.FirstName,
+		createAccReq.LastName,
+	)
+
+	if err := s.store.CreateAccount(account); err != nil {
+		return WriteJSON(w, http.StatusBadRequest, err)
+	}
+
+	return WriteJSON(w, http.StatusOK, account)
 }
 func (s *ApiServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
 	return nil

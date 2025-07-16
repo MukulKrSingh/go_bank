@@ -1,6 +1,5 @@
 
-build: 
-	@docker container start go-bank-db
+build: postgres
 	@go build -o bin/gobank
 
 run: build
@@ -12,7 +11,10 @@ test:
 
 
 postgres:
-	@docker run --name some-postgres -e POSTGRES_PASSWORD=gobank -p 5432:5432 -d postgres 
+	@docker container start go-bank-db
+
+stopDb:
+	@docker container stop go-bank-db	
 
 
 # build_proto:
