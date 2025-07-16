@@ -1,5 +1,6 @@
 
 build: 
+	@docker container start go-bank-db
 	@go build -o bin/gobank
 
 run: build
