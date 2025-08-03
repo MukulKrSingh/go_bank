@@ -1,0 +1,47 @@
+
+@url = http://localhost:3000
+
+
+#Create New Acccount -> working
+POST  {{url}}/account
+content-type: application/json
+
+{
+    "first_name": "Mukul",
+    "last_name": "Singh",
+    "password":"test@1234"
+}
+
+####################
+
+#Login Into Account -> Under dev
+POST {{url}}/login
+content-type: application/json
+
+{
+    "number" : 12,
+    "password": "kjsdhfiuh34hejk"
+}
+#################
+#Get All Accounts -> working
+GET   {{url}}/account
+
+############
+#Get Account by ID -> Under Dev
+GET {{url}}/account/4
+
+##########
+#Delete account by ID -> Working
+DELETE {{url}}/account/delete/4
+
+
+
+####################
+#Transfer to money to account
+POST {{url}}/transfer
+content-type: application/json
+
+{
+    "to_account": 3243254345,
+    "amount": 3242345323
+}

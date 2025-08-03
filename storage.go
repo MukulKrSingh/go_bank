@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 
 	_ "github.com/lib/pq"
 )
@@ -20,7 +21,7 @@ type PostgresStore struct {
 }
 
 func NewPostgresStore() (*PostgresStore, error) {
-	connStr := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+	connStr := "postgres://postgres:postgresd@localhost:5432/postgres?sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		fmt.Printf("Failed to open db : %v", err)
@@ -46,6 +47,7 @@ func (s *PostgresStore) createTableAccount() error {
 	id SERIAL PRIMARY KEY,
 	first_name varchar(50),
 	last_name varchar(50),
+	encrypted_password varchar(100),
 	number SERIAL,
 	balance SERIAL,
 	created_at timestamp
@@ -66,12 +68,8 @@ func (s *PostgresStore) GetAccounts() ([]*Account, error) {
 
 	for rows.Next() {
 		acc := new(Account)
-		if err := rows.Scan(&acc.Id,
-			&acc.FirstName,
-			&acc.LastName,
-			&acc.Number,
-			&acc.Balance,
-			&acc.CreatedAt); err != nil {
+		acc, err = scanIntoAccount(rows)
+		if err != nil {
 			return nil, err
 		}
 		accounts = append(accounts, acc)
@@ -80,12 +78,24 @@ func (s *PostgresStore) GetAccounts() ([]*Account, error) {
 }
 
 func (s *PostgresStore) CreateAccount(acc *Account) error {
-	query := `INSERT INTO account (first_name , last_name ,number, balance , created_at)
-	VALUES ($1, $2 , $3 , $4, $5)
+	query := `INSERT INTO account (
+	first_name , 
+	last_name , 
+	encrypted_password,
+	number, 
+	balance,
+	created_at
+	)
+	VALUES ($1, $2 , $3 , $4, $5, $6)
 	`
 	resp, err := s.db.Query(
 		query,
-		acc.FirstName, acc.LastName, acc.Number, acc.Balance, acc.CreatedAt,
+		acc.FirstName,
+		acc.LastName,
+		acc.EncryptedPassword,
+		acc.Number,
+		acc.Balance,
+		acc.CreatedAt,
 	)
 	if err != nil {
 		return err
@@ -97,8 +107,47 @@ func (s *PostgresStore) UpdateAccount(account *Account) error {
 	return nil
 }
 func (s *PostgresStore) DeleteAccount(id int) error {
+	query := `DELETE FROM account			
+			WHERE  id = $1`
+	resp, err := s.db.Query(query, id)
+	if err != nil {
+		return err
+	}
+	log.Printf("%+v", resp)
 	return nil
 }
 func (s *PostgresStore) GetAccountById(id int) (*Account, error) {
-	return nil, nil
+
+	query := `SELECT * FROM account WHERE id = $1`
+
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var acc *Account
+	acc, err = scanIntoAccount(rows)
+	if err != nil {
+		return nil, err
+	}
+	return acc, nil
+}
+func scanIntoAccount(rows *sql.Rows) (*Account, error) {
+
+	account := new(Account)
+
+	err := rows.Scan(
+		&account.Id,
+		&account.FirstName,
+		&account.LastName,
+		&account.EncryptedPassword,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt,
+	)
+
+	return account, err
 }
