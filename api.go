@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Sign and get the complete encoded token as a string using the secret
+var secret = "some-long-scret-to-be-read-from-env-or-secret-manager"
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 
@@ -56,8 +60,8 @@ func (s *ApiServer) Run() {
 
 	router.HandleFunc("/login", makeHttpHandleFunc(s.handleLogin))
 
-	router.HandleFunc("/account", withJwt(makeHttpHandleFunc(s.handleAcount)))
-	router.HandleFunc("/account/{id}", makeHttpHandleFunc(s.handleGetAccountById))
+	router.HandleFunc("/account", makeHttpHandleFunc(s.handleAcount))
+	router.HandleFunc("/account/{id}", withJwt(makeHttpHandleFunc(s.handleGetAccountById), s.store))
 	router.HandleFunc("/account/delete/{id}", makeHttpHandleFunc(s.handleDeleteAccount))
 
 	router.HandleFunc("/transfer", makeHttpHandleFunc(s.handleTransfer))
@@ -80,7 +84,34 @@ func (s *ApiServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
-	return WriteJSON(w, http.StatusOK, loginReq)
+	//Retreive account from storage
+	acc, err := s.store.GetAccountByNumber(int64(loginReq.Number))
+	if err != nil {
+		return WriteJSON(w, http.StatusBadRequest, ApiError{
+			Error: "invalid credentials",
+		})
+	}
+
+	//compare the password with encrypted password
+
+	if err := bcrypt.CompareHashAndPassword([]byte(acc.EncryptedPassword), []byte(loginReq.Password)); err != nil {
+		return WriteJSON(w, http.StatusBadRequest, ApiError{
+			Error: "invalid credentials",
+		})
+	}
+
+	//Generate jwt token
+	token, err := createJwt(acc)
+	if err != nil {
+		return WriteJSON(w, http.StatusBadRequest, ApiError{
+			Error: "invalid credentials",
+		})
+	}
+
+	return WriteJSON(w, http.StatusOK, map[string]string{
+		"message": "Login Success",
+		"token":   token,
+	})
 
 }
 func (s *ApiServer) handleAcount(w http.ResponseWriter, r *http.Request) error {
@@ -192,33 +223,65 @@ func permissionDenied(w http.ResponseWriter) {
 		Error: "access denied",
 	})
 }
-func withJwt(handleFunc http.HandlerFunc) http.HandlerFunc {
+func withJwt(handleFunc http.HandlerFunc, store Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// tokenString := r.Header.Get("x-jwt-token")
-		// token, err := validateJwt(tokenString)
-		// if err != nil {
-		// 	permissionDenied(w)
-		// 	return
-		// }
-		// if !token.Valid {
-		// 	permissionDenied(w)
-		// 	return
-		// }
-		fmt.Println("Called with jwt auth")
-		//get the user id from the getId
-		//match it with jwt claims
+
+		fmt.Println("Called middleware jwt auth")
+		tokenString := r.Header.Get("x-jwt-token")
+		token, err := validateJwt(tokenString)
+		if err != nil {
+			permissionDenied(w)
+			return
+		}
+		if !token.Valid {
+			permissionDenied(w)
+			return
+		}
+		claims := token.Claims.(jwt.MapClaims)
+		userId, err := getID(r)
+		if err != nil {
+			permissionDenied(w)
+			return
+		}
+		account, err := store.GetAccountById(userId)
+		if err != nil {
+			permissionDenied(w)
+			return
+		}
+		if account.Number != int64(claims["number"].(float64)) {
+			permissionDenied(w)
+			return
+		}
+
 		handleFunc(w, r)
 
 	}
 }
-func createJwt(account *Account) (string, error) {
-	var token string
-	return token, nil
-}
 func validateJwt(tokenString string) (*jwt.Token, error) {
 
-	return nil, nil
+	return jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+
+		return []byte(secret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+
 }
+func createJwt(acc *Account) (string, error) {
+
+	claims := jwt.MapClaims{
+		"number": acc.Number,
+		"id":     acc.Id,
+		"expiry": time.Now().Add(time.Hour),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+}
+
 func validatePwd(pwd string) (bool, error) {
 	if len(pwd) < 8 {
 		return false, fmt.Errorf("password should be min 8 chars long")

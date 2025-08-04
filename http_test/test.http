@@ -7,9 +7,9 @@ POST  {{url}}/account
 content-type: application/json
 
 {
-    "first_name": "Mukul",
+    "first_name": "Varun",
     "last_name": "Singh",
-    "password":"test@1234"
+    "password":"password"
 }
 
 ####################
@@ -19,8 +19,8 @@ POST {{url}}/login
 content-type: application/json
 
 {
-    "number" : 12,
-    "password": "kjsdhfiuh34hejk"
+    "number" : 286294,
+    "password": "test@1234"
 }
 #################
 #Get All Accounts -> working
@@ -28,7 +28,8 @@ GET   {{url}}/account
 
 ############
 #Get Account by ID -> Under Dev
-GET {{url}}/account/4
+GET {{url}}/account/2
+x-jwt-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnkiOiIyMDI1LTA4LTA0VDE2OjE3OjU5LjczMjE2OSswNTozMCIsImlkIjoyLCJudW1iZXIiOjI4NjI5NH0.rmo1GcLSlq2bRgUJYOtPa8kLejSZ-3FL1K1ToPxa7sI
 
 ##########
 #Delete account by ID -> Working

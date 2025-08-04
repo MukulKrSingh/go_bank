@@ -14,6 +14,7 @@ type Storage interface {
 	UpdateAccount(*Account) error
 	GetAccounts() ([]*Account, error)
 	GetAccountById(int) (*Account, error)
+	GetAccountByNumber(number int64) (*Account, error)
 }
 
 type PostgresStore struct {
@@ -22,6 +23,7 @@ type PostgresStore struct {
 
 func NewPostgresStore() (*PostgresStore, error) {
 	connStr := "postgres://postgres:postgresd@localhost:5432/postgres?sslmode=disable"
+
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		fmt.Printf("Failed to open db : %v", err)
@@ -120,20 +122,44 @@ func (s *PostgresStore) GetAccountById(id int) (*Account, error) {
 
 	query := `SELECT * FROM account WHERE id = $1`
 
-	rows, err := s.db.Query(query, id)
-	if err != nil {
+	rows := s.db.QueryRow(query, id)
 
+	var acc Account
+	err := rows.Scan(
+		&acc.Id,
+		&acc.FirstName,
+		&acc.LastName,
+		&acc.EncryptedPassword,
+		&acc.Number,
+		&acc.Balance,
+		&acc.CreatedAt,
+	)
+	if err != nil {
 		return nil, err
 	}
+	return &acc, nil
+}
 
-	defer rows.Close()
+func (s *PostgresStore) GetAccountByNumber(number int64) (*Account, error) {
+	query := `SELECT * FROM account WHERE number = $1`
 
-	var acc *Account
-	acc, err = scanIntoAccount(rows)
+	rows := s.db.QueryRow(query, number)
+
+	var acc Account
+	err := rows.Scan(
+		&acc.Id,
+		&acc.FirstName,
+		&acc.LastName,
+		&acc.EncryptedPassword,
+		&acc.Number,
+		&acc.Balance,
+		&acc.CreatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
-	return acc, nil
+	return &acc, nil
+
 }
 func scanIntoAccount(rows *sql.Rows) (*Account, error) {
 
