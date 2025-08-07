@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -58,13 +59,14 @@ func NewApiServer(listenAddr string, store Storage) *ApiServer {
 func (s *ApiServer) Run() {
 	router := mux.NewRouter()
 
+	
 	router.HandleFunc("/login", makeHttpHandleFunc(s.handleLogin))
 
 	router.HandleFunc("/account", makeHttpHandleFunc(s.handleAcount))
 	router.HandleFunc("/account/{id}", withJwt(makeHttpHandleFunc(s.handleGetAccountById), s.store))
 	router.HandleFunc("/account/delete/{id}", makeHttpHandleFunc(s.handleDeleteAccount))
 
-	router.HandleFunc("/transfer", makeHttpHandleFunc(s.handleTransfer))
+	router.HandleFunc("/transfer/{id}", withJwt(makeHttpHandleFunc(s.handleTransfer), s.store))
 	fmt.Printf("JSON API server running on port: %v", s.listenAddr)
 
 	http.ListenAndServe(s.listenAddr, router)
@@ -163,9 +165,10 @@ func (s *ApiServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	pwd := string(encpw)
 	//3. Store the pwd in new account in encrypted format
 	account := NewAccount(
+		createAccReq.Balance,
 		createAccReq.FirstName,
 		createAccReq.LastName,
-		pwd,
+		pwd,	
 	)
 
 	if err := s.store.CreateAccount(account); err != nil {
@@ -204,8 +207,44 @@ func (s *ApiServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) 
 	})
 }
 func (s *ApiServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return WriteJSON(w, http.StatusForbidden, ApiError{
+			Error: "INVALID REQUEST",
+		})
+	}
+	senderID, err := getID(r)
+	if err != nil {
+		return fmt.Errorf("invalid id %v", err)
+	}
+
 	transferReq := new(TransferRequest)
 	json.NewDecoder(r.Body).Decode(&transferReq)
+
+	senderAcc, err := s.store.GetAccountById(senderID)
+	if err != nil {
+		return WriteJSON(w, http.StatusNotFound, ApiError{
+			Error: "user not found",
+		})
+
+	}
+	receiverAcc, err := s.store.GetAccountByNumber(int64(transferReq.ToAccount))
+	if err != nil {
+		return WriteJSON(w, http.StatusNotFound, ApiError{
+			Error: "user not found",
+		})
+
+	}
+	if  int(senderAcc.Balance)< transferReq.Amount || transferReq.Amount <= 0 {
+		return WriteJSON(w, http.StatusBadRequest, ApiError{
+			Error: "illegal request",
+		})
+	}
+
+	if err := s.store.HandleTransfer(context.Background(), senderAcc, receiverAcc, transferReq); err != nil {
+		return WriteJSON(w, http.StatusInternalServerError, ApiError{
+			Error: "failed to transfer amounr",
+		})
+	}
 
 	return WriteJSON(w, http.StatusOK, transferReq)
 }

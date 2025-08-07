@@ -1,15 +1,18 @@
 
 @url = http://localhost:3000
-
+//test@1234,password
 
 #Create New Acccount -> working
+# remove balance from here - for testing purpose only
 POST  {{url}}/account
 content-type: application/json
 
 {
-    "first_name": "Varun",
-    "last_name": "Singh",
-    "password":"password"
+    "first_name": "Vipin",
+    "last_name": "Sharma",
+    "password":"password",
+    "balance":1000
+    
 }
 
 ####################
@@ -19,8 +22,8 @@ POST {{url}}/login
 content-type: application/json
 
 {
-    "number" : 286294,
-    "password": "test@1234"
+    "number" : 594773,
+    "password": "password"
 }
 #################
 #Get All Accounts -> working
@@ -28,8 +31,8 @@ GET   {{url}}/account
 
 ############
 #Get Account by ID -> Under Dev
-GET {{url}}/account/2
-x-jwt-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnkiOiIyMDI1LTA4LTA0VDE2OjE3OjU5LjczMjE2OSswNTozMCIsImlkIjoyLCJudW1iZXIiOjI4NjI5NH0.rmo1GcLSlq2bRgUJYOtPa8kLejSZ-3FL1K1ToPxa7sI
+GET {{url}}/account/7
+x-jwt-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnkiOiIyMDI1LTA4LTA3VDE1OjQ2OjU2Ljk1MTEyKzA1OjMwIiwiaWQiOjcsIm51bWJlciI6NTk0NzczfQ.-3JSK_YplMBpjMHAiazRN0jBqD78qi-l0VpsVyMogkU
 
 ##########
 #Delete account by ID -> Working
@@ -39,10 +42,11 @@ DELETE {{url}}/account/delete/4
 
 ####################
 #Transfer to money to account
-POST {{url}}/transfer
+POST {{url}}/transfer/7
 content-type: application/json
+x-jwt-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnkiOiIyMDI1LTA4LTA3VDE1OjQ2OjU2Ljk1MTEyKzA1OjMwIiwiaWQiOjcsIm51bWJlciI6NTk0NzczfQ.-3JSK_YplMBpjMHAiazRN0jBqD78qi-l0VpsVyMogkU
 
 {
-    "to_account": 3243254345,
-    "amount": 3242345323
+    "to_account": 173374,
+    "amount": 550
 }

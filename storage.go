@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -11,10 +12,11 @@ import (
 type Storage interface {
 	CreateAccount(*Account) error
 	DeleteAccount(id int) error
-	UpdateAccount(*Account) error
+	UpdateAccount(ctx context.Context, tx *sql.Tx, account *Account) error
 	GetAccounts() ([]*Account, error)
 	GetAccountById(int) (*Account, error)
 	GetAccountByNumber(number int64) (*Account, error)
+	HandleTransfer(context.Context, *Account, *Account, *TransferRequest) error
 }
 
 type PostgresStore struct {
@@ -59,6 +61,41 @@ func (s *PostgresStore) createTableAccount() error {
 		return err
 	}
 	return nil
+}
+
+func (s *PostgresStore) HandleTransfer(ctx context.Context, sen *Account, rec *Account, tr *TransferRequest) error {
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Fetch sender account with lock
+	fromAccount := sen
+	req := tr
+	// Fetch receiver account with lock
+	toAccount := rec
+	// Check sufficient funds
+	if (fromAccount.Balance) < int64(req.Amount) {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	// Adjust balances in-memory
+	fromAccount.Balance -= int64(req.Amount)
+	toAccount.Balance += int64(req.Amount)
+
+	// Update accounts with new balances
+	if err := s.UpdateAccount(ctx, tx, fromAccount); err != nil {
+		return err
+	}
+	if err := s.UpdateAccount(ctx, tx, toAccount); err != nil {
+		return err
+	}
+
+	// Commit transaction
+	return tx.Commit()
+
 }
 func (s *PostgresStore) GetAccounts() ([]*Account, error) {
 	query := `SELECT * FROM account`
@@ -105,8 +142,12 @@ func (s *PostgresStore) CreateAccount(acc *Account) error {
 	fmt.Printf("%+v\n", resp)
 	return nil
 }
-func (s *PostgresStore) UpdateAccount(account *Account) error {
-	return nil
+
+// Assume Account struct has: ID int64, Balance int64 (in cents, recommended)
+func (s *PostgresStore) UpdateAccount(ctx context.Context, tx *sql.Tx, account *Account) error {
+	query := "UPDATE account SET balance = $1 WHERE id = $2"
+	_, err := tx.ExecContext(ctx, query, account.Balance, account.Id)
+	return err
 }
 func (s *PostgresStore) DeleteAccount(id int) error {
 	query := `DELETE FROM account			

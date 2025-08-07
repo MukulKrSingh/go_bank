@@ -7,6 +7,6 @@ Minimalist use of packages
 
 
  TODO:
-1. Login 
+1. Login - [done]
 2. Handle Transfer
-3. Secure the API's
+3. Secure the API's -> getaccountbyid[done]
